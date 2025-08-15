@@ -1,32 +1,36 @@
-# WooCommerce UPI QR Gateway - Advanced
+# WooCommerce UPI QR Code Gateway
 
-UPI QR Gateway with webhook verification, transaction deduplication, webhook logging, IP allowlist and replay protection.
+Simple WooCommerce payment gateway that displays a UPI QR code for customers to scan and pay using any UPI app.
 
 ## Installation
 
 1. Upload the plugin folder into `wp-content/plugins/`.
 2. Activate the plugin.
-3. Go to WooCommerce > Settings > Payments and enable "UPI / QR (Advanced)".
-4. Click "Manage" and set Merchant UPI ID (VPA), Merchant Name, Webhook Secret, IP Allowlist (comma separated), Transaction ID key (e.g., txn_id), and Replay TTL (seconds).
+3. Go to WooCommerce > Settings > Payments and enable "UPI / QR Payment".
+4. Click "Manage" and set Merchant UPI ID (VPA), Merchant Name and instructions.
+5. Optionally set a **Webhook Secret** in the gateway settings and configure your payment aggregator to call the webhook endpoint described below.
+
+## Usage
+
+- On checkout, select "UPI / QR Payment" as the payment method. A QR code will be displayed on the checkout page (if order available).
+- After placing the order, the order will be set to "On hold". Merchant should verify payment manually and mark order complete.
+- With webhook support enabled and a secret set, a payment aggregator can notify the store automatically to mark orders as paid.
 
 ## Webhook Integration
 
 - **Endpoint:** `POST /wp-json/wc-upi-qr/v1/webhook`
 - **Payload:** JSON object. Example:
 ```json
-{ "order_id": 123, "transaction_id": "txn_abc123", "status": "paid", "timestamp": 1690000000 }
+{ "order_id": 123, "status": "paid" }
 ```
-- **Authentication:** Use either header `X-WC-UPI-SECRET: <secret>` or `X-WC-UPI-SIGN: <hmac_sha256(raw_body, secret)>`
+- **Authentication:** Set a secret in the gateway settings as `Webhook Secret`. The aggregator should either:
+  - Send header `X-WC-UPI-SECRET: <secret>` OR
+  - Send header `X-WC-UPI-SIGN: <hmac_sha256(raw_body, secret)>`
 
-## Security Features
-
-- **IP Allowlist:** Only accepts webhooks from configured IP addresses (optional).
-- **Replay Protection:** Validates timestamp inside payload against configured TTL.
-- **Transaction Deduplication:** Prevents processing the same aggregator transaction twice.
-- **Webhook Logs:** All incoming webhooks are logged to `wp_wc_upi_webhooks` table for audit and debugging.
+When the webhook is verified, the plugin will call `payment_complete()` on the order (marks order paid and reduces stock).
 
 ## Notes
 
-- Use HTTPS for webhook endpoints.
-- Configure your aggregator to send the transaction id key matching the plugin's setting (default: `transaction_id`).
-- If you want integration with a specific aggregator (example: Cashfree, Razorpay Payouts, etc.), provide their webhook payload spec and we can map fields accordingly.
+- Ensure TLS (HTTPS) on your site for secure webhook delivery.
+- Test with a sample aggregator or ngrok during development.
+- If you want the plugin to fetch receipts or verify transaction IDs, provide the aggregator's documentation and we can add transaction verification logic.
